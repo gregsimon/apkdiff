@@ -12,7 +12,6 @@ FILES = True
  the APK files, and diff everything we find separately. 
 
      B.apk - A.apk = patch
-
      A.apk + patch = B.apk
 
  1. Create a list of files in each APK, with paths included
@@ -37,31 +36,30 @@ def main():
         print('Usage: {} <dir1> <dir2>'.format(os.path.basename(sys.argv[0])))
 
 def collect_files(path):
-    path = os.path.abspath(path)
     dirs, files = listdir(path)[:2]
-    print(path)
-    walk(path, dirs, files)
-    if not dirs:
-        print('No subfolders exist')
+    all_files = []
+    return walk(path, dirs, files, all_files, path)
+    return all_files
 
-def walk(root, dirs, files, prefix=''):
-    if FILES and files:
-        file_prefix = prefix + ('|' if dirs else ' ') + '   '
-        for name in files:
-            print(file_prefix + name)
-        print(file_prefix)
+def walk(root, dirs, files, all_files, path_prefix_to_remove, prefix=''):
+    file_prefix = prefix + ('|' if dirs else ' ') + '   '
+    for name in files:
+        all_files.append(os.path.relpath(root+'/'+name, path_prefix_to_remove))
+        
+
     dir_prefix, walk_prefix = prefix + '+---', prefix + '|   '
     for pos, neg, name in enumerate2(dirs):
         if neg == -1:
             dir_prefix, walk_prefix = prefix + '\\---', prefix + '    '
-        print(dir_prefix + name)
         path = os.path.join(root, name)
         try:
             dirs, files = listdir(path)[:2]
         except:
             pass
         else:
-            walk(path, dirs, files, walk_prefix)
+            walk(path, dirs, files, all_files, path_prefix_to_remove, walk_prefix)
+
+    return all_files
 
 def listdir(path):
     dirs, files, links = [], [], []
