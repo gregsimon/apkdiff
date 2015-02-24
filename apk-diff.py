@@ -30,16 +30,41 @@ def main():
     global FILES; FILES = True
 
     try:
-        a_files = collect_files(sys.argv[1])
-        b_files = collect_files(sys.argv[2])
+    	a_folder = sys.argv[1]
+    	b_folder = sys.argv[2]
+        a_files = collect_files(a_folder)
+        b_files = collect_files(b_folder)
+
+        compute_delta(a_folder, a_files, b_folder, b_files)
+        
     except:
         print('Usage: {} <dir1> <dir2>'.format(os.path.basename(sys.argv[0])))
+
+
+def compute_delta(a_folder, a_files, b_folder, b_files):
+	print('Going from %d files %d files' % (len(a_files), len(b_files)))
+
+	# First let's fill up these categories
+	files_new = []
+	files_removed = []
+	files_changed = []
+
+	# files_new
+	# TODO
+
+	# files_removed
+	# TODO
+
+	# files_changed
+	# TODO
+
+
+
 
 def collect_files(path):
     dirs, files = listdir(path)[:2]
     all_files = []
     return walk(path, dirs, files, all_files, path)
-    return all_files
 
 def walk(root, dirs, files, all_files, path_prefix_to_remove, prefix=''):
     file_prefix = prefix + ('|' if dirs else ' ') + '   '
