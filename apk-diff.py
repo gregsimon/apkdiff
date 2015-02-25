@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, filecmp, shutil
+import sys, os, filecmp, shutil, bsdiff4
 
 
 '''
