@@ -41,6 +41,31 @@ def main():
         raise
 
 
+def compute_delta_brut(a_folder, a_files, b_folder, b_files):
+	# just walk through the dst files and diff them with EVERYTHING
+	# from the src. We'll only compare things with the same file ext
+	# to save time.
+	result_files = []
+
+	for dst in b_files:
+		#for elt in a_files:
+			#src_filename = a_folder+'/'+elt
+		dst_filename = b_folder+'/'+dst
+		best_src_diff = find_best_diff(dst_filename, a_folder, a_files)
+		result_files.append([dst, best_src_diff])
+
+	print('now compute all the diffs')
+	
+	shutil.rmtree(g_output_dir)
+	os.makedirs(g_output_dir)
+	
+	unique_fileid = 0
+
+	for elt in result_files:
+		bsdiff4.file_diff(elt[1], elt[2], '%s/f%s' % (g_output_dir, unique_fileid))
+		unique_fileid = unique_fileid + 1
+
+
 def compute_delta(a_folder, a_files, b_folder, b_files):
 	print('Going from %d files %d files' % (len(a_files), len(b_files)))
 
@@ -92,8 +117,6 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	# the same source even if the names have slightly changed.
 	# It looks like for clank, they stamp the build #s into 
 	# the names, so we'll use that heuristic.
-	print(a_files_so)
-	print(b_files_so)
 
 	for elt in b_files_so:
 		if elt in a_files_so:
@@ -176,7 +199,7 @@ def find_best_diff(dst, prefix, filelist):
 	for elt in filelist:
 		src_file = prefix+'/'+elt
 		src_sz = os.path.getsize(src_file)
-		if src_sz > 0:
+		if (src_sz > 0) and os.path.splitext(src_file)[1] == os.path.splitext(dst)[1]:
 			print('trying %s (%d bytes) -> %s' % (src_file, src_sz, dst))
 			diff_sz = measure_two_filediffs(src_file, dst)
 			if diff_sz < winning_patch_sz:
