@@ -52,31 +52,6 @@ def main():
         raise
 
 
-def compute_delta_brut(a_folder, a_files, b_folder, b_files):
-	# just walk through the dst files and diff them with EVERYTHING
-	# from the src. This will take a long time, but are the results better?
-	result_files = []
-
-	for dst in b_files:
-		#for elt in a_files:
-			#src_filename = a_folder+'/'+elt
-		dst_filename = b_folder+'/'+dst
-		best_src_diff = find_best_diff(dst_filename, a_folder, a_files)
-		result_files.append([dst, best_src_diff])
-
-	print('now compute all the diffs')
-	
-	shutil.rmtree(g_output_dir)
-	os.makedirs(g_output_dir)
-	
-	unique_fileid = 0
-
-	for elt in result_files:
-		bsdiff4.file_diff(elt[1], elt[2], '%s/f%s' % (g_output_dir, unique_fileid))
-		unique_fileid = unique_fileid + 1
-
-	# TODO : write TOC.txt
-
 
 def compute_delta(a_folder, a_files, b_folder, b_files):
 	print('Going from %d files %d files' % (len(a_files), len(b_files)))
