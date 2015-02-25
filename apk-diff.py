@@ -5,10 +5,11 @@ import sys, os, filecmp, shutil, bsdiff4
 
 '''
  Diff two APK files and create a patch which can be applied
+
  gregsimon@chromium.org
 
  Rather than diff the entire file, we're going to uncompress
- the APK files, and diff everything we find separately. 
+ the APK files and diff everything we find. 
 
      B.apk - A.apk = patch
      A.apk + patch = B.apk
@@ -16,12 +17,22 @@ import sys, os, filecmp, shutil, bsdiff4
  1. Create a list of files in each APK, with paths included
  2. These files will fall into one of three categories:
     1) file exists only in A (to be deleted)
-	2) file exists only in B (new)	
+	2) file exists only in B (new or renamed*)
 	3) file exists in both and has the same contents (push)
 	4) file exists in both and is different. (diff!)
+	
+	* File is NEW but can be effectively diff'ed with another
+	  file with the same file extension.
 
-	Note this does not account for files that are moved around, 
-	but that is a feature for later.
+ We'll write a special instruction file that is interpreted
+ on the receiving end (the patcher) so the patch can be
+ more complicated (and result in a smaller patch overall.)
+
+
+	TODO : take .apks as inputs
+	TODO : zip the output
+	TODO : make the output dir configurable
+	TODO : cmdline args for everything.
 
 '''
 
@@ -43,8 +54,7 @@ def main():
 
 def compute_delta_brut(a_folder, a_files, b_folder, b_files):
 	# just walk through the dst files and diff them with EVERYTHING
-	# from the src. We'll only compare things with the same file ext
-	# to save time.
+	# from the src. This will take a long time, but are the results better?
 	result_files = []
 
 	for dst in b_files:
@@ -64,6 +74,8 @@ def compute_delta_brut(a_folder, a_files, b_folder, b_files):
 	for elt in result_files:
 		bsdiff4.file_diff(elt[1], elt[2], '%s/f%s' % (g_output_dir, unique_fileid))
 		unique_fileid = unique_fileid + 1
+
+	# TODO : write TOC.txt
 
 
 def compute_delta(a_folder, a_files, b_folder, b_files):
@@ -110,13 +122,12 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 				files_unchanged.append(elt)
 
 
-
-	# Now, handle the so files special.
-	#
-	# We ultimately want to diff .so files that are built from
-	# the same source even if the names have slightly changed.
-	# It looks like for clank, they stamp the build #s into 
-	# the names, so we'll use that heuristic.
+	'''
+	Special-case the .so files.
+	
+	We ultimately want to diff .so files that are built from
+	the same source even if the names have slightly changed.
+	'''
 
 	for elt in b_files_so:
 		if elt in a_files_so:
@@ -140,18 +151,20 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	print('%d files files_renamed' % len(files_renamed))
 
 
-	# Ok, now let's write out the patch. The patch is two major sections:
-	#  
-	#   - TOC.txt, which contains the instructions of what files to add, 
-	#			remove, and patch
-	# 	- f0, f1, ...  the files themselves
-	# 
-	#   Legend:
-	#   -<filename>         					// This file should be REMOVED
-	#   +<id> <dst_filename>         			// This file should be ADDED
-	#	c<id> <filename>						// This file shouldb be patched, same name
-	#   r<id> <src_filename> <dst_filename>		// this file should be patched to 
-	#												src_filename and named dst_filename
+	'''
+	Ok, now let's write out the patch. The patch is two major sections:
+	 
+	  - TOC.txt, which contains the instructions of what files to add, 
+			remove, and patch
+		- f0, f1, ...  the files themselves
+	
+	  Legend:
+	  -<filename>         					// This file should be REMOVED
+	  +<id> <dst_filename>         			// This file should be ADDED
+	c<id> <filename>						// This file shouldb be patched, same name
+	  r<id> <src_filename> <dst_filename>		// this file should be patched to 
+												src_filename and named dst_filename
+	'''
 
 	# temp dir where we're assembling the patch
 	shutil.rmtree(g_output_dir)
