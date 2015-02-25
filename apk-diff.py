@@ -167,7 +167,8 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	'''
 
 	# temp dir where we're assembling the patch
-	shutil.rmtree(g_output_dir)
+	if os.path.exists(g_output_dir):
+		shutil.rmtree(g_output_dir)
 	os.makedirs(g_output_dir)
 
 	unique_fileid = 0
