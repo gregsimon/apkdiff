@@ -38,6 +38,7 @@ def main():
         
     except:
         print('Usage: {} <dir1> <dir2>'.format(os.path.basename(sys.argv[0])))
+        raise
 
 
 def compute_delta(a_folder, a_files, b_folder, b_files):
@@ -67,9 +68,8 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	# What files appear in B but not in A?
 	for elt in b_files:
 		if elt not in a_files:
-			# is this an .so? We need to treat it different since these
-			# can change names
-			files_new.append(elt)
+			if not elt.endswith('.so'):
+				files_new.append(elt)
 	
     # What files appear in A but not in B?
 	for elt in a_files:
@@ -85,11 +85,6 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 				files_unchanged.append(elt)
 
 
-	print('%d .so files to diff' % (len(b_files_so) + len(a_files_so)))
-	print('%d new files' % len(files_new))
-	print('%d removed files' % len(files_removed))
-	print('%d files changed' % len(files_changed))
-	print('%d files unchanged' % len(files_unchanged))
 
 	# Now, handle the so files special.
 	#
@@ -97,10 +92,29 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	# the same source even if the names have slightly changed.
 	# It looks like for clank, they stamp the build #s into 
 	# the names, so we'll use that heuristic.
-	#print(a_files_so)
-	#print(b_files_so)
+	print(a_files_so)
+	print(b_files_so)
+
+	for elt in b_files_so:
+		if elt in a_files_so:
+			# this file is the same name in both!
+			files_changed.append(elt)
+		else:
+			# This one is new, but we can probably bsdiff it with one
+			# of the other .so's since it was likely renamed.
+			a_best_choice_diff = find_best_diff(b_folder+'/'+elt, a_folder, a_files_so)
+
+			# this will be a 'rename' record in the TOC
+			files_renamed.append([elt, a_best_choice_diff])
 
 	
+
+	print('%d .so files to diff' % (len(b_files_so) + len(a_files_so)))
+	print('%d new files' % len(files_new))
+	print('%d removed files' % len(files_removed))
+	print('%d files changed' % len(files_changed))
+	print('%d files unchanged' % len(files_unchanged))
+	print('%d files files_renamed' % len(files_renamed))
 
 
 	# Ok, now let's write out the patch. The patch is two major sections:
@@ -138,33 +152,47 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 		shutil.copy(b_folder+'/'+elt, '%s/f%d' % (g_output_dir, unique_fileid))
 		unique_fileid = unique_fileid + 1
 
+	print("writing diff'ed changed files...")
+	for elt in files_changed:
+		toc.write('c%d %s\n' % (unique_fileid, elt))
+		bsdiff4.file_diff(b_folder+'/'+elt, a_folder+'/'+elt, 
+							'%s/f%d' % (g_output_dir, unique_fileid))
+		unique_fileid = unique_fileid + 1
+
+	for elt in files_renamed:
+		# these files are diffed against a src file with a different name
+		src_file = a_folder+'/'+elt[1]
+		dst_file = b_folder+'/'+elt[0]
+		toc.write('C%d %s %s\n' % (unique_fileid, src_file, dst_file))
+		bsdiff4.file_diff(src_file, dst_file, 
+			'%s/f%d' % (g_output_dir, unique_fileid))
+		unique_fileid = unique_fileid + 1
 
 	toc.close()
 
+def find_best_diff(dst, prefix, filelist):
+	print('Finding the best file from original apk to diff %s with:' % dst)
+	winning_patch_sz = sys.maxint
+	for elt in filelist:
+		src_file = prefix+'/'+elt
+		src_sz = os.path.getsize(src_file)
+		if src_sz > 0:
+			print('trying %s (%d bytes) -> %s' % (src_file, src_sz, dst))
+			diff_sz = measure_two_filediffs(src_file, dst)
+			if diff_sz < winning_patch_sz:
+				winning_patch_sz = diff_sz
+				winning_file = elt
 
-def to_multiset(x):
-    result = set()
-    max_rep = len(x)
-    for elt in x:
-        for n in xrange(max_rep):
-            n_elt = (elt,n)
-            if n_elt not in result:
-                result.add(n_elt)
-                break
-    return result
+	print('   Best is to diff with %s, patch is only %d k!' % (winning_file, 
+					winning_patch_sz/1024))
+	return winning_file
 
-def from_multiset(x):
-    return sorted([elt for elt,n in x])
-
-def multi_union(a, b):
-    aa = to_multiset(a)
-    bb = to_multiset(b)
-    return from_multiset(aa | bb)
-
-def multi_intersect(a, b):
-    aa = to_multiset(a)
-    bb = to_multiset(b)
-    return from_multiset(aa & bb)
+def measure_two_filediffs(src, dst):
+	k_patch_filename = 'temp.patch'
+	bsdiff4.file_diff(src, dst, k_patch_filename)
+	result_size = os.path.getsize(k_patch_filename)
+	os.remove(k_patch_filename)
+	return result_size
 
 def collect_files(path):
     dirs, files = listdir(path)[:2]
