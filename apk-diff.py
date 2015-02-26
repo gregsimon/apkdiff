@@ -32,11 +32,13 @@ import sys, os, filecmp, shutil, bsdiff4, zipfile
 	TODO : zip the output
 	TODO : make the output dir configurable
 	TODO : cmdline args for everything.
+	TODO : filenames should be escaped; using | for now
 
 '''
 
 def main():
-	global g_output_dir; g_output_dir = "out"
+	global g_output_dir; g_output_dir = "temp_out"
+	global g_patch_filename; g_patch_filename = "patch.zip"
 
 	try:
 		a_apk = sys.argv[1]
@@ -63,11 +65,23 @@ def main():
 
 		shutil.rmtree(a_folder)
 		shutil.rmtree(b_folder)
+
+		print('compressing patch file %s' % g_patch_filename)
+		zipf = zipfile.ZipFile(g_patch_filename, 'w')
+		zipdir(g_output_dir, zipf)
+		zipf.close()
+
+		shutil.rmtree(g_output_dir)
 		
 	except:
 		print('Usage: {} <APK-from> <APK-to>'.format(os.path.basename(sys.argv[0])))
 		raise
 
+
+def zipdir(path, zip):
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            zip.write(os.path.join(root, file))
 
 def ensure_dir_exists(path):
 	if os.path.exists(path):
@@ -157,9 +171,9 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	
 	  Legend:
 	  -<filename>         					// This file should be REMOVED
-	  +<id> <dst_filename>         			// This file should be ADDED
-	c<id> <filename>						// This file shouldb be patched, same name
-	  r<id> <src_filename> <dst_filename>		// this file should be patched to 
+	  +<id>|<dst_filename>         			// This file should be ADDED
+	  c<id>|<filename>						// This file shouldb be patched, same name
+	  r<id>|<src_filename>|<dst_filename>		// this file should be patched to 
 												src_filename and named dst_filename
 	'''
 
@@ -178,7 +192,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 
 	for elt in files_new:
 		# write an entry for the file
-		toc.write('+%d %s\n' % (unique_fileid, elt))
+		toc.write('+%d|%s\n' % (unique_fileid, elt))
 		
 		# copy the file contents itself into the folder.
 		shutil.copy(b_folder+'/'+elt, '%s/f%d' % (g_output_dir, unique_fileid))
@@ -186,7 +200,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 
 	print("writing diff'ed changed files...")
 	for elt in files_changed:
-		toc.write('c%d %s\n' % (unique_fileid, elt))
+		toc.write('c%d|%s\n' % (unique_fileid, elt))
 		bsdiff4.file_diff(b_folder+'/'+elt, a_folder+'/'+elt, 
 							'%s/f%d' % (g_output_dir, unique_fileid))
 		unique_fileid = unique_fileid + 1
@@ -195,7 +209,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 		# these files are diffed against a src file with a different name
 		src_file = a_folder+'/'+elt[1]
 		dst_file = b_folder+'/'+elt[0]
-		toc.write('C%d %s %s\n' % (unique_fileid, src_file, dst_file))
+		toc.write('C%d|%s|%s\n' % (unique_fileid, elt[1], elt[0]))
 		bsdiff4.file_diff(src_file, dst_file, 
 			'%s/f%d' % (g_output_dir, unique_fileid))
 		unique_fileid = unique_fileid + 1
