@@ -9,9 +9,17 @@ of simple file manipulation and bsdiff when appropriate.
 There are many more optimizations to make, like
 
 - write the 'patcher' in C/C++ for memory and speed improvements
-- reduce the memory required by bsdiff 
+- reduce the memory required by bsdiff (is this an issue? need to measure)
 - Use courgette instead of bsdiff for executables
 
 Experiments still to try
 
 - When diffing load everything into RAM and do brut-force 'bsdiff' to see if that results in further reductions
+
+
+
+Using
+
+https://github.com/ilanschnell/bsdiff4
+
+for the bsdiff implementation.
