@@ -1,0 +1,44 @@
+2015-XX-XX   1.1.5:
+-------------------
+  * add Python 3.4 as officially supported
+  * cleanup some C code which was creating warnings
+
+
+2013-04-06   1.1.4:
+-------------------
+  * fix Python 3 issue with CLI
+
+
+2013-01-20   1.1.3:
+-------------------
+  * fixed file_patch() when src_path and dst_path point to the same file
+    location on Windows
+
+
+2012-11-27   1.1.2:
+-------------------
+  * fixed file_patch when src_path and dst_path are the same file
+  * add file_patch_inplace()
+
+
+2012-03-14   1.1.1:
+-------------------
+  * while performing the diff, we are now releasing the GIL while performing
+    nested for loop
+
+
+2012-02-11   1.1.0:
+-------------------
+  * add Python 3 support
+  * improve documentation
+
+
+2011-06-11   1.0.1:
+-------------------
+  * add example which implements a slow pure Python patch function
+  * using cStringIO (instead of StringIO) in format module
+
+
+2011-05-23   1.0.0:
+-------------------
+initial release
