@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, filecmp, shutil, bsdiff4
+import sys, os, filecmp, shutil, bsdiff4, zipfile
 
 
 '''
@@ -11,12 +11,12 @@ import sys, os, filecmp, shutil, bsdiff4
  Rather than diff the entire file, we're going to uncompress
  the APK files and diff everything we find. 
 
-     B.apk - A.apk = patch
-     A.apk + patch = B.apk
+	 B.apk - A.apk = patch
+	 A.apk + patch = B.apk
 
  1. Create a list of files in each APK, with paths included
  2. These files will fall into one of three categories:
-    1) file exists only in A (to be deleted)
+	1) file exists only in A (to be deleted)
 	2) file exists only in B (new or renamed*)
 	3) file exists in both and has the same contents (push)
 	4) file exists in both and is different. (diff!)
@@ -29,7 +29,6 @@ import sys, os, filecmp, shutil, bsdiff4
  more complicated (and result in a smaller patch overall.)
 
 
-	TODO : take .apks as inputs
 	TODO : zip the output
 	TODO : make the output dir configurable
 	TODO : cmdline args for everything.
@@ -37,20 +36,43 @@ import sys, os, filecmp, shutil, bsdiff4
 '''
 
 def main():
-    global g_output_dir; g_output_dir = "out"
+	global g_output_dir; g_output_dir = "out"
 
-    try:
-    	a_folder = sys.argv[1]
-    	b_folder = sys.argv[2]
-        a_files = collect_files(a_folder)
-        b_files = collect_files(b_folder)
+	try:
+		a_apk = sys.argv[1]
+		b_apk = sys.argv[2]
+		a_folder = 'temp_a'
+		b_folder = 'temp_b'
 
-        compute_delta(a_folder, a_files, b_folder, b_files)
-        
-    except:
-        print('Usage: {} <dir1> <dir2>'.format(os.path.basename(sys.argv[0])))
-        raise
+		print('Uncompressing APKs...')
 
+		ensure_dir_exists(a_folder)
+		zipf = zipfile.ZipFile(a_apk, 'r');
+		zipf.extractall(a_folder)
+		zipf.close()
+
+		ensure_dir_exists(b_folder)
+		zipf = zipfile.ZipFile(b_apk, 'r');
+		zipf.extractall(b_folder)
+		zipf.close()
+
+		a_files = collect_files(a_folder)
+		b_files = collect_files(b_folder)
+
+		compute_delta(a_folder, a_files, b_folder, b_files)
+
+		shutil.rmtree(a_folder)
+		shutil.rmtree(b_folder)
+		
+	except:
+		print('Usage: {} <APK-from> <APK-to>'.format(os.path.basename(sys.argv[0])))
+		raise
+
+
+def ensure_dir_exists(path):
+	if os.path.exists(path):
+		shutil.rmtree(path)
+	os.makedirs(path)
 
 
 def compute_delta(a_folder, a_files, b_folder, b_files):
@@ -83,7 +105,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 			if not elt.endswith('.so'):
 				files_new.append(elt)
 	
-    # What files appear in A but not in B?
+	# What files appear in A but not in B?
 	for elt in a_files:
 		if elt not in b_files:
 			files_removed.append(elt)
@@ -142,9 +164,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	'''
 
 	# temp dir where we're assembling the patch
-	if os.path.exists(g_output_dir):
-		shutil.rmtree(g_output_dir)
-	os.makedirs(g_output_dir)
+	ensure_dir_exists(g_output_dir)
 
 	unique_fileid = 0
 
@@ -207,46 +227,46 @@ def measure_two_filediffs(src, dst):
 	return result_size
 
 def collect_files(path):
-    dirs, files = listdir(path)[:2]
-    all_files = []
-    return walk(path, dirs, files, all_files, path)
+	dirs, files = listdir(path)[:2]
+	all_files = []
+	return walk(path, dirs, files, all_files, path)
 
 def walk(root, dirs, files, all_files, path_prefix_to_remove, prefix=''):
-    file_prefix = prefix + ('|' if dirs else ' ') + '   '
-    for name in files:
-        all_files.append(os.path.relpath(root+'/'+name, path_prefix_to_remove))
-        
+	file_prefix = prefix + ('|' if dirs else ' ') + '   '
+	for name in files:
+		all_files.append(os.path.relpath(root+'/'+name, path_prefix_to_remove))
+		
 
-    dir_prefix, walk_prefix = prefix + '+---', prefix + '|   '
-    for pos, neg, name in enumerate2(dirs):
-        if neg == -1:
-            dir_prefix, walk_prefix = prefix + '\\---', prefix + '    '
-        path = os.path.join(root, name)
-        try:
-            dirs, files = listdir(path)[:2]
-        except:
-            pass
-        else:
-            walk(path, dirs, files, all_files, path_prefix_to_remove, walk_prefix)
+	dir_prefix, walk_prefix = prefix + '+---', prefix + '|   '
+	for pos, neg, name in enumerate2(dirs):
+		if neg == -1:
+			dir_prefix, walk_prefix = prefix + '\\---', prefix + '    '
+		path = os.path.join(root, name)
+		try:
+			dirs, files = listdir(path)[:2]
+		except:
+			pass
+		else:
+			walk(path, dirs, files, all_files, path_prefix_to_remove, walk_prefix)
 
-    return all_files
+	return all_files
 
 def listdir(path):
-    dirs, files, links = [], [], []
-    for name in os.listdir(path):
-        path_name = os.path.join(path, name)
-        if os.path.isdir(path_name):
-            dirs.append(name)
-        elif os.path.isfile(path_name):
-            files.append(name)
-        elif os.path.islink(path_name):
-            links.append(name)
-    return dirs, files, links
+	dirs, files, links = [], [], []
+	for name in os.listdir(path):
+		path_name = os.path.join(path, name)
+		if os.path.isdir(path_name):
+			dirs.append(name)
+		elif os.path.isfile(path_name):
+			files.append(name)
+		elif os.path.islink(path_name):
+			links.append(name)
+	return dirs, files, links
 
 def enumerate2(sequence):
-    length = len(sequence)
-    for count, value in enumerate(sequence):
-        yield count, count - length, value
+	length = len(sequence)
+	for count, value in enumerate(sequence):
+		yield count, count - length, value
 
 if __name__ == '__main__':
-    main()
+	main()
