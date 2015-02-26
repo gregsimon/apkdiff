@@ -170,8 +170,8 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 
 
 	toc = open(g_output_dir+'/TOC.txt','w')
-	# TODO write MD5 of result
-	toc.write('md5 a82da2f761d6f63ddd7181a7c8c764ea\n')
+	# TODO write SHA1 of result
+	toc.write('sha1 97ff22e8da32324bd1c79fd7b3da8a5b0c5f6dd1\n')
 
 	for elt in files_removed:
 		toc.write('-%s\n' % elt)
