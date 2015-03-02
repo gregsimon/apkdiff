@@ -101,17 +101,10 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 
 	# First, let's remove the .so files since we're going to treat
 	# them special.
-	a_files_so = []
-	b_files_so = []
-	for elt in a_files:
-		if elt.endswith('.so'):
-			a_files_so.append(elt)
-			a_files.remove(elt)
-	for elt in b_files:
-		if elt.endswith('.so'):
-			b_files_so.append(elt)
-			b_files.remove(elt)
+	a_files_so = [tup for tup in a_files if tup.endswith('.so')]
+	b_files_so = [tup for tup in b_files if tup.endswith('.so')]
 
+	
 
 	# What files appear in B but not in A?
 	for elt in b_files:
@@ -139,7 +132,7 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	We ultimately want to diff .so files that are built from
 	the same source even if the names have slightly changed.
 	'''
-
+	print('Find matches for .so files')
 	for elt in b_files_so:
 		if elt in a_files_so:
 			# this file is the same name in both!
@@ -217,19 +210,21 @@ def compute_delta(a_folder, a_files, b_folder, b_files):
 	toc.close()
 
 def find_best_diff(dst, prefix, filelist):
-	print('Finding the best file from original apk to diff %s with:' % dst)
+	print('\nFinding the best file (%d files) to patch %s with:' % (len(filelist), dst))
 	winning_patch_sz = sys.maxint
 	for elt in filelist:
 		src_file = prefix+'/'+elt
 		src_sz = os.path.getsize(src_file)
+		dst_sz = os.path.getsize(dst)
+		#print('%s (%d k) ->' % (src_file, src_sz/1024))
 		if (src_sz > 0) and os.path.splitext(src_file)[1] == os.path.splitext(dst)[1]:
-			print('trying %s (%d bytes) -> %s' % (src_file, src_sz, dst))
+			print(' ... trying %s (%dk) with %s (%dk)' % (src_file, src_sz/1024, dst, dst_sz/1024))
 			diff_sz = measure_two_filediffs(src_file, dst)
 			if diff_sz < winning_patch_sz:
 				winning_patch_sz = diff_sz
 				winning_file = elt
 
-	print('   Best is to diff with %s, patch is only %d k!' % (winning_file, 
+	print('   Winner is %s -> %s, patch is only %d k!\n' % (dst, winning_file, 
 					winning_patch_sz/1024))
 	return winning_file
 
